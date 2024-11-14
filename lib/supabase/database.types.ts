@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           id: string
           name: string
+          gc: string
           status: 'pending' | 'awarded' | 'dead'
           created_at: string
           user_id: string
@@ -20,6 +21,7 @@ export type Database = {
         Insert: {
           id?: string
           name: string
+          gc: string
           status?: 'pending' | 'awarded' | 'dead'
           created_at?: string
           user_id: string
@@ -27,6 +29,7 @@ export type Database = {
         Update: {
           id?: string
           name?: string
+          gc?: string
           status?: 'pending' | 'awarded' | 'dead'
           created_at?: string
           user_id?: string

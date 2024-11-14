@@ -9,6 +9,7 @@ export type LineItem = {
 export type Project = {
   id: string
   name: string
+  gc: string
   status: 'pending' | 'awarded' | 'dead'
   lineItems: LineItem[]
 } 

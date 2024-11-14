@@ -24,6 +24,17 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useRouter } from 'next/navigation'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type LineItem = {
   id: string
@@ -36,6 +47,7 @@ type LineItem = {
 type Project = {
   id: string
   name: string
+  gc: string
   status: 'pending' | 'awarded' | 'dead'
   lineItems: LineItem[]
 }
@@ -44,6 +56,12 @@ export default function Home() {
   const session = useSession()
   const supabase = useSupabaseClient()
   const [projects, setProjects] = useState<Project[]>([])
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectGC, setNewProjectGC] = useState('')
+  const [newProjectStatus, setNewProjectStatus] = useState<'pending' | 'awarded' | 'dead'>('pending')
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -64,6 +82,7 @@ export default function Home() {
         const formattedProjects: Project[] = data.map(project => ({
           id: project.id,
           name: project.name,
+          gc: project.gc,
           status: project.status,
           lineItems: project.line_items.map(item => ({
             id: item.id,
@@ -91,13 +110,18 @@ export default function Home() {
     )
   }
 
-  const addProject = async (name: string, status: 'pending' | 'awarded' | 'dead') => {
+  const addProject = async (
+    name: string, 
+    gc: string, 
+    status: 'pending' | 'awarded' | 'dead'
+  ) => {
     if (!session?.user?.id) return
 
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .insert({
         name,
+        gc,
         status,
         user_id: session.user.id
       })
@@ -112,24 +136,29 @@ export default function Home() {
     setProjects([...projects, { ...project, lineItems: [] }])
   }
 
-  const deleteProject = async (id: string) => {
+  const deleteProject = async (project: Project) => {
     const { error } = await supabase
       .from('projects')
       .delete()
-      .eq('id', id)
+      .eq('id', project.id)
 
     if (error) {
       console.error('Error deleting project:', error)
       return
     }
 
-    setProjects(projects.filter(p => p.id !== id))
+    setProjects(projects.filter(p => p.id !== project.id))
+    setProjectToDelete(null)
   }
 
   const updateProject = async (id: string, updates: Partial<Project>) => {
     const { error } = await supabase
       .from('projects')
-      .update(updates)
+      .update({
+        name: updates.name,
+        gc: updates.gc,
+        status: updates.status
+      })
       .eq('id', id)
 
     if (error) {
@@ -137,7 +166,15 @@ export default function Home() {
       return
     }
 
-    setProjects(projects.map(p => p.id === id ? { ...p, ...updates } : p))
+    setProjects(projects.map(p => 
+      p.id === id 
+        ? { ...p, ...updates }
+        : p
+    ))
+  }
+
+  const handleProjectClick = (project: Project) => {
+    router.push(`/projects/${project.id}`)
   }
 
   return (
@@ -160,11 +197,28 @@ export default function Home() {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="name">Project Name</Label>
-                    <Input id="name" />
+                    <Input 
+                      id="name" 
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="gc">General Contractor</Label>
+                    <Input 
+                      id="gc" 
+                      value={newProjectGC}
+                      onChange={(e) => setNewProjectGC(e.target.value)}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="status">Status</Label>
-                    <Select>
+                    <Select
+                      value={newProjectStatus}
+                      onValueChange={(value: 'pending' | 'awarded' | 'dead') => 
+                        setNewProjectStatus(value)
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
@@ -175,7 +229,17 @@ export default function Home() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button className="w-full">Create Project</Button>
+                  <Button 
+                    className="w-full"
+                    onClick={async () => {
+                      await addProject(newProjectName, newProjectGC, newProjectStatus)
+                      setNewProjectName('')
+                      setNewProjectGC('')
+                      setNewProjectStatus('pending')
+                    }}
+                  >
+                    Create Project
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -185,6 +249,7 @@ export default function Home() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>GC</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Line Items</TableHead>
                 <TableHead>Actions</TableHead>
@@ -192,17 +257,47 @@ export default function Home() {
             </TableHeader>
             <TableBody>
               {projects.map((project) => (
-                <TableRow key={project.id}>
+                <TableRow 
+                  key={project.id}
+                  className="cursor-pointer hover:bg-gray-50"
+                  onClick={() => handleProjectClick(project)}
+                >
                   <TableCell>{project.name}</TableCell>
+                  <TableCell>{project.gc}</TableCell>
                   <TableCell>{project.status}</TableCell>
-                  <TableCell>{project.lineItems.length}</TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="icon">
-                        <Pencil />
+                    {project.lineItems.length} (${project.lineItems.reduce(
+                      (sum, item) => sum + item.quantity * item.unitPrice, 
+                      0
+                    ).toLocaleString()})
+                  </TableCell>
+                  <TableCell>
+                    <div 
+                      className="flex gap-2" 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                      }}
+                    >
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingProject(project)
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="icon">
-                        <Trash />
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setProjectToDelete(project)
+                        }}
+                      >
+                        <Trash className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -212,6 +307,98 @@ export default function Home() {
           </Table>
         </div>
       </Card>
+
+      <Dialog open={!!editingProject} onOpenChange={(open) => !open && setEditingProject(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Project Name</Label>
+              <Input 
+                id="edit-name" 
+                value={editingProject?.name || ''}
+                onChange={(e) => setEditingProject(prev => 
+                  prev ? { ...prev, name: e.target.value } : null
+                )}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-gc">General Contractor</Label>
+              <Input 
+                id="edit-gc" 
+                value={editingProject?.gc || ''}
+                onChange={(e) => setEditingProject(prev => 
+                  prev ? { ...prev, gc: e.target.value } : null
+                )}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-status">Status</Label>
+              <Select
+                value={editingProject?.status || 'pending'}
+                onValueChange={(value: 'pending' | 'awarded' | 'dead') => 
+                  setEditingProject(prev => 
+                    prev ? { ...prev, status: value } : null
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="awarded">Awarded</SelectItem>
+                  <SelectItem value="dead">Dead</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1"
+                variant="outline"
+                onClick={() => setEditingProject(null)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1"
+                onClick={async () => {
+                  if (editingProject) {
+                    const { name, gc, status } = editingProject
+                    await updateProject(editingProject.id, { name, gc, status })
+                    setEditingProject(null)
+                  }
+                }}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the project
+              "{projectToDelete?.name}" and all its line items.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => projectToDelete && deleteProject(projectToDelete)}
+            >
+              Delete Project
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="text-right">
         <Button 
