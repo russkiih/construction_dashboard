@@ -251,7 +251,7 @@ export default function Home() {
                 <TableHead>Name</TableHead>
                 <TableHead>GC</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Line Items</TableHead>
+                <TableHead>Lump Sum</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -266,10 +266,10 @@ export default function Home() {
                   <TableCell>{project.gc}</TableCell>
                   <TableCell>{project.status}</TableCell>
                   <TableCell>
-                    {project.lineItems.length} (${project.lineItems.reduce(
+                    ${project.lineItems.reduce(
                       (sum, item) => sum + item.quantity * item.unitPrice, 
                       0
-                    ).toLocaleString()})
+                    ).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <div 

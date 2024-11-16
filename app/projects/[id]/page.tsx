@@ -52,6 +52,7 @@ export default function ProjectPage() {
       id: data.id,
       name: data.name,
       status: data.status,
+      gc: data.gc,
       lineItems: data.line_items.map((item: any) => ({
         id: item.id,
         service: item.service,
