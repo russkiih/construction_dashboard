@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Pencil, Trash, Plus } from 'lucide-react'
+import { Pencil, Trash, Plus, Copy } from 'lucide-react'
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import AuthComponent from '@/components/auth/auth-component'
 import { Button } from "@/components/ui/button"
@@ -62,6 +62,7 @@ export default function Home() {
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const router = useRouter()
+  const [isNewProjectDialogOpen, setIsNewProjectDialogOpen] = useState(false)
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -134,6 +135,7 @@ export default function Home() {
     }
 
     setProjects([...projects, { ...project, lineItems: [] }])
+    setIsNewProjectDialogOpen(false)
   }
 
   const deleteProject = async (project: Project) => {
@@ -177,15 +179,93 @@ export default function Home() {
     router.push(`/projects/${project.id}`)
   }
 
+  const duplicateProject = async (project: Project) => {
+    if (!session?.user?.id) return
+
+    // Create new project
+    const { data: newProject, error: projectError } = await supabase
+      .from('projects')
+      .insert({
+        name: `${project.name} (Copy)`,
+        gc: project.gc,
+        status: project.status,
+        user_id: session.user.id
+      })
+      .select()
+      .single()
+
+    if (projectError) {
+      console.error('Error duplicating project:', projectError)
+      return
+    }
+
+    // Create new line items
+    if (project.lineItems.length > 0) {
+      const newLineItems = project.lineItems.map(item => ({
+        project_id: newProject.id,
+        service: item.service,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unitPrice
+      }))
+
+      const { error: lineItemsError } = await supabase
+        .from('line_items')
+        .insert(newLineItems)
+
+      if (lineItemsError) {
+        console.error('Error duplicating line items:', lineItemsError)
+        return
+      }
+    }
+
+    // Refresh projects
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        line_items (*)
+      `)
+      .eq('id', newProject.id)
+      .single()
+
+    if (error) {
+      console.error('Error fetching new project:', error)
+      return
+    }
+
+    const formattedProject: Project = {
+      id: data.id,
+      name: data.name,
+      gc: data.gc,
+      status: data.status,
+      lineItems: data.line_items.map(item => ({
+        id: item.id,
+        service: item.service,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice: item.unit_price
+      }))
+    }
+
+    setProjects([...projects, formattedProject])
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+    router.refresh()
+  }
+
   return (
     <main className="p-8">
       <Card className="mb-8">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold">Projects</h1>
-            <Dialog>
+            <Dialog open={isNewProjectDialogOpen} onOpenChange={setIsNewProjectDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button onClick={() => setIsNewProjectDialogOpen(true)}>
                   <Plus className="mr-2" />
                   New Project
                 </Button>
@@ -248,11 +328,11 @@ export default function Home() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>GC</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Lump Sum</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="w-[25%]">Name</TableHead>
+                <TableHead className="w-[25%]">General Contractor</TableHead>
+                <TableHead className="w-[15%]">Status</TableHead>
+                <TableHead className="w-[20%]">Lump Sum</TableHead>
+                <TableHead className="w-[15%] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -262,23 +342,33 @@ export default function Home() {
                   className="cursor-pointer hover:bg-gray-50"
                   onClick={() => handleProjectClick(project)}
                 >
-                  <TableCell>{project.name}</TableCell>
-                  <TableCell>{project.gc}</TableCell>
-                  <TableCell>{project.status}</TableCell>
-                  <TableCell>
+                  <TableCell className="w-[25%]">{project.name}</TableCell>
+                  <TableCell className="w-[25%]">{project.gc}</TableCell>
+                  <TableCell className="w-[15%]">{project.status}</TableCell>
+                  <TableCell className="w-[20%]">
                     ${project.lineItems.reduce(
                       (sum, item) => sum + item.quantity * item.unitPrice, 
                       0
                     ).toLocaleString()}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="w-[15%] text-right">
                     <div 
-                      className="flex gap-2" 
+                      className="flex gap-2 justify-end" 
                       onClick={(e) => {
                         e.stopPropagation()
                         e.preventDefault()
                       }}
                     >
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          duplicateProject(project)
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
                       <Button 
                         variant="outline" 
                         size="icon"
@@ -403,7 +493,7 @@ export default function Home() {
       <div className="text-right">
         <Button 
           variant="outline" 
-          onClick={() => supabase.auth.signOut()}
+          onClick={handleSignOut}
         >
           Sign Out
         </Button>

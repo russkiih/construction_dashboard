@@ -28,6 +28,7 @@ export default function ProjectPage() {
     unit: '',
     unitPrice: ''
   })
+  const [isAddLineItemDialogOpen, setIsAddLineItemDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchProject()
@@ -91,6 +92,7 @@ export default function ProjectPage() {
       unit: '',
       unitPrice: ''
     })
+    setIsAddLineItemDialogOpen(false)
   }
 
   if (!project) return null
@@ -113,9 +115,9 @@ export default function ProjectPage() {
             <p className="text-gray-500">GC: {project.gc}</p>
             <p className="text-gray-500">Status: {project.status}</p>
           </div>
-          <Dialog>
+          <Dialog open={isAddLineItemDialogOpen} onOpenChange={setIsAddLineItemDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => setIsAddLineItemDialogOpen(true)}>
                 <Plus className="mr-2" />
                 Add Line Item
               </Button>
