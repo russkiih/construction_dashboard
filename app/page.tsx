@@ -48,6 +48,8 @@ type Project = {
   id: string
   name: string
   gc: string
+  contact: string
+  dueDate: string
   status: 'pending' | 'awarded' | 'dead'
   lineItems: LineItem[]
 }
@@ -63,6 +65,8 @@ export default function Home() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const router = useRouter()
   const [isNewProjectDialogOpen, setIsNewProjectDialogOpen] = useState(false)
+  const [newProjectContact, setNewProjectContact] = useState('')
+  const [newProjectDueDate, setNewProjectDueDate] = useState('')
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -84,6 +88,8 @@ export default function Home() {
           id: project.id,
           name: project.name,
           gc: project.gc,
+          contact: project.contact,
+          dueDate: project.due_date,
           status: project.status,
           lineItems: project.line_items.map((item: any) => ({
             id: item.id,
@@ -113,7 +119,9 @@ export default function Home() {
 
   const addProject = async (
     name: string, 
-    gc: string, 
+    gc: string,
+    contact: string,
+    dueDate: string,
     status: 'pending' | 'awarded' | 'dead'
   ) => {
     if (!session?.user?.id) return
@@ -123,6 +131,8 @@ export default function Home() {
       .insert({
         name,
         gc,
+        contact,
+        due_date: dueDate,
         status,
         user_id: session.user.id
       })
@@ -159,6 +169,8 @@ export default function Home() {
       .update({
         name: updates.name,
         gc: updates.gc,
+        contact: updates.contact,
+        due_date: updates.dueDate,
         status: updates.status
       })
       .eq('id', id)
@@ -188,6 +200,8 @@ export default function Home() {
       .insert({
         name: `${project.name} (Copy)`,
         gc: project.gc,
+        contact: project.contact,
+        due_date: project.dueDate,
         status: project.status,
         user_id: session.user.id
       })
@@ -238,6 +252,8 @@ export default function Home() {
       id: data.id,
       name: data.name,
       gc: data.gc,
+      contact: data.contact,
+      dueDate: data.due_date,
       status: data.status,
       lineItems: data.line_items.map((item: any) => ({
         id: item.id,
@@ -292,6 +308,23 @@ export default function Home() {
                     />
                   </div>
                   <div>
+                    <Label htmlFor="contact">Contact</Label>
+                    <Input 
+                      id="contact" 
+                      value={newProjectContact}
+                      onChange={(e) => setNewProjectContact(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="dueDate">Due Date</Label>
+                    <Input 
+                      id="dueDate" 
+                      type="date"
+                      value={newProjectDueDate}
+                      onChange={(e) => setNewProjectDueDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
                     <Label htmlFor="status">Status</Label>
                     <Select
                       value={newProjectStatus}
@@ -312,11 +345,20 @@ export default function Home() {
                   <Button 
                     className="w-full"
                     onClick={async () => {
-                      await addProject(newProjectName, newProjectGC, newProjectStatus)
+                      await addProject(
+                        newProjectName, 
+                        newProjectGC, 
+                        newProjectContact,
+                        newProjectDueDate,
+                        newProjectStatus
+                      )
                       setNewProjectName('')
                       setNewProjectGC('')
+                      setNewProjectContact('')
+                      setNewProjectDueDate('')
                       setNewProjectStatus('pending')
                     }}
+                    disabled={!newProjectName || !newProjectGC || !newProjectContact || !newProjectDueDate}
                   >
                     Create Project
                   </Button>
@@ -328,11 +370,13 @@ export default function Home() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[25%]">Name</TableHead>
-                <TableHead className="w-[25%]">General Contractor</TableHead>
-                <TableHead className="w-[15%]">Status</TableHead>
-                <TableHead className="w-[20%]">Lump Sum</TableHead>
-                <TableHead className="w-[15%] text-right">Actions</TableHead>
+                <TableHead className="w-[20%]">Name</TableHead>
+                <TableHead className="w-[15%]">General Contractor</TableHead>
+                <TableHead className="w-[15%]">Contact</TableHead>
+                <TableHead className="w-[15%]">Due Date</TableHead>
+                <TableHead className="w-[10%]">Status</TableHead>
+                <TableHead className="w-[15%]">Lump Sum</TableHead>
+                <TableHead className="w-[10%] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -342,16 +386,18 @@ export default function Home() {
                   className="cursor-pointer hover:bg-gray-50"
                   onClick={() => handleProjectClick(project)}
                 >
-                  <TableCell className="w-[25%]">{project.name}</TableCell>
-                  <TableCell className="w-[25%]">{project.gc}</TableCell>
-                  <TableCell className="w-[15%]">{project.status}</TableCell>
-                  <TableCell className="w-[20%]">
+                  <TableCell className="w-[20%]">{project.name}</TableCell>
+                  <TableCell className="w-[15%]">{project.gc}</TableCell>
+                  <TableCell className="w-[15%]">{project.contact}</TableCell>
+                  <TableCell className="w-[15%]">{new Date(project.dueDate).toLocaleDateString()}</TableCell>
+                  <TableCell className="w-[10%]">{project.status}</TableCell>
+                  <TableCell className="w-[15%]">
                     ${project.lineItems.reduce(
                       (sum, item) => sum + item.quantity * item.unitPrice, 
                       0
                     ).toLocaleString()}
                   </TableCell>
-                  <TableCell className="w-[15%] text-right">
+                  <TableCell className="w-[10%] text-right">
                     <div 
                       className="flex gap-2 justify-end" 
                       onClick={(e) => {
@@ -425,6 +471,27 @@ export default function Home() {
               />
             </div>
             <div>
+              <Label htmlFor="edit-contact">Contact</Label>
+              <Input 
+                id="edit-contact" 
+                value={editingProject?.contact || ''}
+                onChange={(e) => setEditingProject(prev => 
+                  prev ? { ...prev, contact: e.target.value } : null
+                )}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-dueDate">Due Date</Label>
+              <Input 
+                id="edit-dueDate" 
+                type="date"
+                value={editingProject?.dueDate || ''}
+                onChange={(e) => setEditingProject(prev => 
+                  prev ? { ...prev, dueDate: e.target.value } : null
+                )}
+              />
+            </div>
+            <div>
               <Label htmlFor="edit-status">Status</Label>
               <Select
                 value={editingProject?.status || 'pending'}
@@ -456,8 +523,8 @@ export default function Home() {
                 className="flex-1"
                 onClick={async () => {
                   if (editingProject) {
-                    const { name, gc, status } = editingProject
-                    await updateProject(editingProject.id, { name, gc, status })
+                    const { name, gc, status, contact, dueDate } = editingProject
+                    await updateProject(editingProject.id, { name, gc, status, contact, dueDate })
                     setEditingProject(null)
                   }
                 }}
@@ -469,22 +536,25 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+      <AlertDialog 
+        open={!!projectToDelete} 
+        onOpenChange={(open) => !open && setProjectToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the project
-              "{projectToDelete?.name}" and all its line items.
+              This will permanently delete the project &quot;{projectToDelete?.name}&quot; 
+              and all its line items. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              onClick={() => projectToDelete && deleteProject(projectToDelete.id)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => projectToDelete && deleteProject(projectToDelete)}
             >
-              Delete Project
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
