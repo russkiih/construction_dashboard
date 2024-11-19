@@ -85,7 +85,7 @@ export default function Home() {
           name: project.name,
           gc: project.gc,
           status: project.status,
-          lineItems: project.line_items.map(item => ({
+          lineItems: project.line_items.map((item: any) => ({
             id: item.id,
             service: item.service,
             quantity: item.quantity,
@@ -239,7 +239,7 @@ export default function Home() {
       name: data.name,
       gc: data.gc,
       status: data.status,
-      lineItems: data.line_items.map(item => ({
+      lineItems: data.line_items.map((item: any) => ({
         id: item.id,
         service: item.service,
         quantity: item.quantity,

@@ -26,16 +26,22 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = createServerComponentClient({ cookies })
+  const cookieStore = await cookies()
+  const supabase = createServerComponentClient({ 
+    cookies: () => cookieStore  
+  })
   
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const [{ data: { session } }, { data: { user } }] = await Promise.all([
+    supabase.auth.getSession(),
+    supabase.auth.getUser()
+  ])
+
+  const verifiedSession = user ? session : null
 
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <SupabaseProvider initialSession={session}>
+        <SupabaseProvider initialSession={verifiedSession}>
           {children}
         </SupabaseProvider>
       </body>
