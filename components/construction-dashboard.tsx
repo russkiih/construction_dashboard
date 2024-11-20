@@ -6,6 +6,7 @@ import { Database } from '@/lib/supabase/database.types'
 import { Project, LineItem } from '@/types'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import AccountHeader from '@/components/account/account-header'
 
 export default function ConstructionDashboard() {
   const supabase = useSupabaseClient<Database>()
@@ -38,6 +39,7 @@ export default function ConstructionDashboard() {
     const formattedProjects: Project[] = data.map(project => ({
       id: project.id,
       name: project.name,
+      gc: project.gc,
       status: project.status,
       lineItems: project.line_items.map(item => ({
         id: item.id,
@@ -59,6 +61,7 @@ export default function ConstructionDashboard() {
       .from('projects')
       .insert({
         name: 'Test Project',
+        gc: 'Test Contractor',
         status: 'pending',
         user_id: session.user.id
       })
@@ -93,6 +96,7 @@ export default function ConstructionDashboard() {
 
   return (
     <div className="p-4">
+      <AccountHeader />
       <Card className="p-6">
         <h1 className="text-2xl font-bold mb-4">Construction Dashboard</h1>
         

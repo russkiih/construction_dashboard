@@ -551,7 +551,7 @@ export default function Home() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => projectToDelete && deleteProject(projectToDelete.id)}
+              onClick={() => projectToDelete && deleteProject(projectToDelete)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
