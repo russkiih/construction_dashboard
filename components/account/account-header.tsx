@@ -59,6 +59,15 @@ export default function AccountHeader() {
             <HelpCircle className="h-5 w-5" />
           </Button>
           
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push('/settings')}
+            className="ml-2"
+          >
+            <Settings className="h-5 w-5" />
+          </Button>
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">

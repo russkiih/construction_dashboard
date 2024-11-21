@@ -58,6 +58,7 @@ export default function Dashboard() {
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [profile, setProfile] = useState<{ company_name: string } | null>(null)
 
   useEffect(() => {
     if (!session) {
@@ -68,6 +69,21 @@ export default function Dashboard() {
   useEffect(() => {
     fetchProjects()
   }, [])
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('company_name')
+          .eq('id', user.id)
+          .single()
+        setProfile(data)
+      }
+    }
+    fetchProfile()
+  }, [supabase])
 
   const fetchProjects = async () => {
     const { data, error } = await supabase
@@ -208,11 +224,13 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="p-8">
+    <main className="container mx-auto px-4 py-8">
       <Card className="mb-8">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold">Projects</h1>
+            <h1 className="text-2xl font-bold">
+              {profile?.company_name ? `${profile.company_name}'s Projects` : 'Projects'}
+            </h1>
             <Dialog open={isNewProjectDialogOpen} onOpenChange={setIsNewProjectDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => setIsNewProjectDialogOpen(true)}>
@@ -320,8 +338,8 @@ export default function Dashboard() {
                   <TableCell>{project.contact}</TableCell>
                   <TableCell>{project.dueDate}</TableCell>
                   <TableCell>
-                    <div className="bg-white px-3 py-2 rounded-md shadow-sm border border-gray-200">
-                      <p className={`text-sm font-medium
+                    <div className="inline-flex bg-white px-3 py-2 rounded-md shadow-sm border border-gray-200">
+                      <p className={`text-sm font-medium whitespace-nowrap
                         ${project.status === 'pending' ? 'text-yellow-700' : 
                           project.status === 'awarded' ? 'text-green-700' : 
                           'text-red-700'}`

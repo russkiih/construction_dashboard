@@ -182,7 +182,7 @@ export default function ProjectPage() {
   )
 
   return (
-    <main className="p-8">
+    <main className="container mx-auto px-4 py-8">
       <Button
         variant="outline"
         className="mb-4"
