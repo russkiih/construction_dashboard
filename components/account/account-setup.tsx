@@ -37,7 +37,7 @@ export default function AccountSetup() {
 
       if (profileError) throw profileError
 
-      router.push('/dashboard')
+      router.push('/')
       router.refresh()
 
     } catch (error) {

@@ -14,6 +14,8 @@ export type Database = {
           id: string
           name: string
           gc: string
+          contact: string | null
+          due_date: string | null
           status: 'pending' | 'awarded' | 'dead'
           created_at: string
           user_id: string
@@ -22,6 +24,8 @@ export type Database = {
           id?: string
           name: string
           gc: string
+          contact?: string | null
+          due_date?: string | null
           status?: 'pending' | 'awarded' | 'dead'
           created_at?: string
           user_id: string
@@ -30,6 +34,8 @@ export type Database = {
           id?: string
           name?: string
           gc?: string
+          contact?: string | null
+          due_date?: string | null
           status?: 'pending' | 'awarded' | 'dead'
           created_at?: string
           user_id?: string

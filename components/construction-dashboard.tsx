@@ -40,7 +40,9 @@ export default function ConstructionDashboard() {
       id: project.id,
       name: project.name,
       gc: project.gc,
-      status: project.status,
+      contact: project.contact || '',
+      dueDate: project.due_date || '',
+      status: project.status, 
       lineItems: project.line_items.map(item => ({
         id: item.id,
         service: item.service,

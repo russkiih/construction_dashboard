@@ -4,6 +4,7 @@ import "./globals.css";
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import SupabaseProvider from '@/components/providers/supabase-provider'
+import AccountHeader from '@/components/account/account-header'
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -42,6 +43,7 @@ export default async function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <SupabaseProvider initialSession={verifiedSession}>
+          {session && <AccountHeader />}
           {children}
         </SupabaseProvider>
       </body>

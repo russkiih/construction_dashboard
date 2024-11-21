@@ -2,10 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useSupabaseClient } from '@supabase/auth-helpers-react'
-import { Plus, ArrowLeft, Copy, Pencil, Trash } from 'lucide-react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Plus, ArrowLeft, Pencil, Trash, Copy } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -15,15 +23,6 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Project, LineItem } from '@/types'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,21 +33,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import type { Project, LineItem } from '@/types'
 
 export default function ProjectPage() {
   const params = useParams()
   const router = useRouter()
-  const supabase = useSupabaseClient()
+  const supabase = createClientComponentClient()
   const [project, setProject] = useState<Project | null>(null)
+  const [isAddLineItemDialogOpen, setIsAddLineItemDialogOpen] = useState(false)
   const [newLineItem, setNewLineItem] = useState({
     service: '',
     quantity: '',
     unit: '',
     unitPrice: ''
   })
-  const [isAddLineItemDialogOpen, setIsAddLineItemDialogOpen] = useState(false)
-  const [editingLineItem, setEditingLineItem] = useState<LineItem | null>(null)
   const [isEditLineItemDialogOpen, setIsEditLineItemDialogOpen] = useState(false)
+  const [editingLineItem, setEditingLineItem] = useState<LineItem | null>(null)
+  const [isDeleteLineItemDialogOpen, setIsDeleteLineItemDialogOpen] = useState(false)
   const [lineItemToDelete, setLineItemToDelete] = useState<LineItem | null>(null)
 
   useEffect(() => {
@@ -73,8 +74,10 @@ export default function ProjectPage() {
     setProject({
       id: data.id,
       name: data.name,
-      status: data.status,
       gc: data.gc,
+      contact: data.contact || '',
+      dueDate: data.due_date || '',
+      status: data.status,
       lineItems: data.line_items.map((item: any) => ({
         id: item.id,
         service: item.service,
@@ -85,20 +88,17 @@ export default function ProjectPage() {
     })
   }
 
-  const addLineItem = async () => {
-    if (!project) return
-
-    const quantity = parseFloat(newLineItem.quantity) || 0
-    const unitPrice = parseFloat(newLineItem.unitPrice) || 0
+  const handleAddLineItem = async () => {
+    if (!project || !newLineItem.service || !newLineItem.quantity || !newLineItem.unit || !newLineItem.unitPrice) return
 
     const { error } = await supabase
       .from('line_items')
       .insert({
         project_id: project.id,
         service: newLineItem.service,
-        quantity: quantity,
+        quantity: Number(newLineItem.quantity),
         unit: newLineItem.unit,
-        unit_price: unitPrice
+        unit_price: Number(newLineItem.unitPrice)
       })
 
     if (error) {
@@ -106,17 +106,53 @@ export default function ProjectPage() {
       return
     }
 
-    fetchProject()
-    setNewLineItem({
-      service: '',
-      quantity: '',
-      unit: '',
-      unitPrice: ''
-    })
     setIsAddLineItemDialogOpen(false)
+    setNewLineItem({ service: '', quantity: '', unit: '', unitPrice: '' })
+    fetchProject()
   }
 
-  const duplicateLineItem = async (item: LineItem) => {
+  const handleEditLineItem = async () => {
+    if (!editingLineItem) return
+
+    const { error } = await supabase
+      .from('line_items')
+      .update({
+        service: editingLineItem.service,
+        quantity: editingLineItem.quantity,
+        unit: editingLineItem.unit,
+        unit_price: editingLineItem.unitPrice
+      })
+      .eq('id', editingLineItem.id)
+
+    if (error) {
+      console.error('Error updating line item:', error)
+      return
+    }
+
+    setIsEditLineItemDialogOpen(false)
+    setEditingLineItem(null)
+    fetchProject()
+  }
+
+  const handleDeleteLineItem = async () => {
+    if (!lineItemToDelete) return
+
+    const { error } = await supabase
+      .from('line_items')
+      .delete()
+      .eq('id', lineItemToDelete.id)
+
+    if (error) {
+      console.error('Error deleting line item:', error)
+      return
+    }
+
+    setIsDeleteLineItemDialogOpen(false)
+    setLineItemToDelete(null)
+    fetchProject()
+  }
+
+  const handleDuplicateLineItem = async (item: LineItem) => {
     if (!project) return
 
     const { error } = await supabase
@@ -137,147 +173,148 @@ export default function ProjectPage() {
     fetchProject()
   }
 
-  const updateLineItem = async () => {
-    if (!editingLineItem || !project) return
-
-    const { error } = await supabase
-      .from('line_items')
-      .update({
-        service: editingLineItem.service,
-        quantity: editingLineItem.quantity,
-        unit: editingLineItem.unit,
-        unit_price: editingLineItem.unitPrice
-      })
-      .eq('id', editingLineItem.id)
-
-    if (error) {
-      console.error('Error updating line item:', error)
-      return
-    }
-
-    fetchProject()
-    setEditingLineItem(null)
-    setIsEditLineItemDialogOpen(false)
+  if (!project) {
+    return null
   }
 
-  const deleteLineItem = async (itemId: string) => {
-    if (!project) return
-
-    const { error } = await supabase
-      .from('line_items')
-      .delete()
-      .eq('id', itemId)
-
-    if (error) {
-      console.error('Error deleting line item:', error)
-      return
-    }
-
-    fetchProject()
-    setLineItemToDelete(null)
-  }
-
-  if (!project) return null
+  const totalAmount = project.lineItems.reduce((sum, item) => 
+    sum + (item.quantity * item.unitPrice), 0
+  )
 
   return (
-    <div className="p-8">
+    <main className="p-8">
       <Button
         variant="outline"
-        onClick={() => router.back()}
         className="mb-4"
+        onClick={() => router.push('/dashboard')}
       >
-        <ArrowLeft className="mr-2" />
-        Back
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back to Projects
       </Button>
 
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">{project.name}</h1>
-            <p className="text-gray-500">GC: {project.gc}</p>
-            <p className="text-gray-500">Status: {project.status}</p>
+      <Card className="mb-8">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold mb-2">{project.name}</h1>
+              <p className="text-gray-500">General Contractor: {project.gc}</p>
+              {project.contact && (
+                <p className="text-gray-500">Contact: {project.contact}</p>
+              )}
+              {project.dueDate && (
+                <p className="text-gray-500">Due Date: {project.dueDate}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                <div className="mb-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium
+                    ${project.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' : 
+                      project.status === 'awarded' ? 'bg-green-100 text-green-800 border border-green-200' : 
+                      'bg-red-100 text-red-800 border border-red-200'}`
+                  }>
+                    {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-500">Total Amount</p>
+                  <p className={`text-2xl font-bold
+                    ${project.status === 'pending' ? 'text-yellow-700' : 
+                      project.status === 'awarded' ? 'text-green-700' : 
+                      'text-red-700'}`
+                  }>
+                    ${totalAmount.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <Dialog open={isAddLineItemDialogOpen} onOpenChange={setIsAddLineItemDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setIsAddLineItemDialogOpen(true)}>
-                <Plus className="mr-2" />
-                Add Line Item
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Line Item</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Service</Label>
-                  <Input
-                    value={newLineItem.service}
-                    onChange={(e) => setNewLineItem({
-                      ...newLineItem,
-                      service: e.target.value
-                    })}
-                  />
-                </div>
-                <div>
-                  <Label>Quantity</Label>
-                  <Input
-                    type="number"
-                    value={newLineItem.quantity}
-                    onChange={(e) => setNewLineItem({
-                      ...newLineItem,
-                      quantity: e.target.value
-                    })}
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div>
-                  <Label>Unit</Label>
-                  <Input
-                    value={newLineItem.unit}
-                    onChange={(e) => setNewLineItem({
-                      ...newLineItem,
-                      unit: e.target.value
-                    })}
-                  />
-                </div>
-                <div>
-                  <Label>Unit Price</Label>
-                  <Input
-                    type="number"
-                    value={newLineItem.unitPrice}
-                    onChange={(e) => setNewLineItem({
-                      ...newLineItem,
-                      unitPrice: e.target.value
-                    })}
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <Button 
-                  className="w-full" 
-                  onClick={addLineItem}
-                  disabled={!newLineItem.service || !newLineItem.quantity || !newLineItem.unit || !newLineItem.unitPrice}
-                >
+
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Line Items</h2>
+            <Dialog open={isAddLineItemDialogOpen} onOpenChange={setIsAddLineItemDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
                   Add Line Item
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Line Item</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="service">Service</Label>
+                    <Input
+                      id="service"
+                      value={newLineItem.service}
+                      onChange={(e) => setNewLineItem({
+                        ...newLineItem,
+                        service: e.target.value
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="quantity">Quantity</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      value={newLineItem.quantity}
+                      onChange={(e) => setNewLineItem({
+                        ...newLineItem,
+                        quantity: e.target.value
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="unit">Unit</Label>
+                    <Input
+                      id="unit"
+                      value={newLineItem.unit}
+                      onChange={(e) => setNewLineItem({
+                        ...newLineItem,
+                        unit: e.target.value
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="unitPrice">Unit Price</Label>
+                    <Input
+                      id="unitPrice"
+                      type="number"
+                      value={newLineItem.unitPrice}
+                      onChange={(e) => setNewLineItem({
+                        ...newLineItem,
+                        unitPrice: e.target.value
+                      })}
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAddLineItemDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAddLineItem}>
+                      Add Line Item
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
 
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Line Items</h2>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[25%]">Service</TableHead>
+                <TableHead className="w-[30%]">Service</TableHead>
                 <TableHead className="w-[15%]">Quantity</TableHead>
                 <TableHead className="w-[15%]">Unit</TableHead>
                 <TableHead className="w-[15%]">Unit Price</TableHead>
                 <TableHead className="w-[15%]">Total</TableHead>
-                <TableHead className="w-[15%] text-right">Actions</TableHead>
+                <TableHead className="w-[10%] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -286,39 +323,35 @@ export default function ProjectPage() {
                   <TableCell>{item.service}</TableCell>
                   <TableCell>{item.quantity}</TableCell>
                   <TableCell>{item.unit}</TableCell>
-                  <TableCell>${item.unitPrice}</TableCell>
+                  <TableCell>${item.unitPrice.toLocaleString()}</TableCell>
                   <TableCell>
                     ${(item.quantity * item.unitPrice).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      <Button 
-                        variant="outline" 
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
                         size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          duplicateLineItem(item)
-                        }}
+                        onClick={() => handleDuplicateLineItem(item)}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation()
+                        onClick={() => {
                           setEditingLineItem(item)
                           setIsEditLineItemDialogOpen(true)
                         }}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation()
+                        onClick={() => {
                           setLineItemToDelete(item)
+                          setIsDeleteLineItemDialogOpen(true)
                         }}
                       >
                         <Trash className="h-4 w-4" />
@@ -327,16 +360,6 @@ export default function ProjectPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              <TableRow className="font-bold">
-                <TableCell colSpan={4} className="text-right">Total:</TableCell>
-                <TableCell>
-                  ${project.lineItems.reduce(
-                    (sum, item) => sum + item.quantity * item.unitPrice,
-                    0
-                  ).toLocaleString()}
-                </TableCell>
-                <TableCell></TableCell>
-              </TableRow>
             </TableBody>
           </Table>
         </div>
@@ -348,82 +371,93 @@ export default function ProjectPage() {
             <DialogTitle>Edit Line Item</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Service</Label>
-              <Input
-                value={editingLineItem?.service || ''}
-                onChange={(e) => setEditingLineItem(prev => 
-                  prev ? { ...prev, service: e.target.value } : null
-                )}
-              />
-            </div>
-            <div>
-              <Label>Quantity</Label>
-              <Input
-                type="number"
-                value={editingLineItem?.quantity || ''}
-                onChange={(e) => setEditingLineItem(prev => 
-                  prev ? { ...prev, quantity: parseFloat(e.target.value) } : null
-                )}
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <div>
-              <Label>Unit</Label>
-              <Input
-                value={editingLineItem?.unit || ''}
-                onChange={(e) => setEditingLineItem(prev => 
-                  prev ? { ...prev, unit: e.target.value } : null
-                )}
-              />
-            </div>
-            <div>
-              <Label>Unit Price</Label>
-              <Input
-                type="number"
-                value={editingLineItem?.unitPrice || ''}
-                onChange={(e) => setEditingLineItem(prev => 
-                  prev ? { ...prev, unitPrice: parseFloat(e.target.value) } : null
-                )}
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <Button 
-              className="w-full" 
-              onClick={updateLineItem}
-              disabled={!editingLineItem?.service || !editingLineItem?.quantity || !editingLineItem?.unit || !editingLineItem?.unitPrice}
-            >
-              Save Changes
-            </Button>
+            {editingLineItem && (
+              <>
+                <div>
+                  <Label htmlFor="edit-service">Service</Label>
+                  <Input
+                    id="edit-service"
+                    value={editingLineItem.service}
+                    onChange={(e) => setEditingLineItem({
+                      ...editingLineItem,
+                      service: e.target.value
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-quantity">Quantity</Label>
+                  <Input
+                    id="edit-quantity"
+                    type="number"
+                    value={editingLineItem.quantity}
+                    onChange={(e) => setEditingLineItem({
+                      ...editingLineItem,
+                      quantity: Number(e.target.value)
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-unit">Unit</Label>
+                  <Input
+                    id="edit-unit"
+                    value={editingLineItem.unit}
+                    onChange={(e) => setEditingLineItem({
+                      ...editingLineItem,
+                      unit: e.target.value
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-unitPrice">Unit Price</Label>
+                  <Input
+                    id="edit-unitPrice"
+                    type="number"
+                    value={editingLineItem.unitPrice}
+                    onChange={(e) => setEditingLineItem({
+                      ...editingLineItem,
+                      unitPrice: Number(e.target.value)
+                    })}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditLineItemDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleEditLineItem}>
+                    Save Changes
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
       <AlertDialog 
-        open={!!lineItemToDelete} 
-        onOpenChange={(open) => !open && setLineItemToDelete(null)}
+        open={isDeleteLineItemDialogOpen} 
+        onOpenChange={setIsDeleteLineItemDialogOpen}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Line Item</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the line item &quot;{lineItemToDelete?.service}&quot;. 
-              This action cannot be undone.
+              Are you sure you want to delete this line item? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => lineItemToDelete && deleteLineItem(lineItemToDelete.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteLineItem}
+              className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              Delete Line Item
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </main>
   )
 } 
