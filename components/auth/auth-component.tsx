@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 export default function AuthComponent() {
   const supabase = createClientComponentClient()
@@ -75,28 +76,18 @@ export default function AuthComponent() {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <Card className="p-8 bg-white">
         <div className="flex justify-center mb-8">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-            {/* 3D Blocks */}
-            <g transform="translate(60,60)">
-            {/* Front cube */}
-            <path d="M0 40 L40 20 L80 40 L40 60 Z" fill="#000000"/>
-            <path d="M80 40 L40 60 L40 100 L80 80 Z" fill="#1a1a1a"/>
-            <path d="M0 40 L40 60 L40 100 L0 80 Z" fill="#333333"/>
-      
-            {/* Calculator screen */}
-            <rect x="15" y="45" width="30" height="20" fill="#ffffff" rx="2"/>
-            <text x="30" y="60" fontFamily="monospace" fontSize="14" fill="#000000" textAnchor="middle">1+1</text>
-              
-            {/* Dollar symbol */}
-            {/* <text x="65" y="50" font-family="Arial" font-size="14" fill="#ffffff" text-anchor="middle">$</text> */}
-            </g>
-    
-            {/* Company name */}
-            <text x="100" y="175" fontFamily="Arial, sans-serif" fontSize="18" fill="#000000" textAnchor="middle" fontWeight="bold">CostCube</text>
-          </svg>
+          <Image
+            src="/cube.png"
+            alt="CostCube Logo"
+            width={100}
+            height={100}
+            priority
+          />
         </div>
-        <h1 className="text-2xl font-bold text-center mb-6">Professional Construction Proposals</h1>
-        
+        <h1 className="text-2xl font-bold text-center mb-6">Cost Cube</h1>
+        <p className="text-xl text-muted-foreground text-center">
+        Professional Construction Proposals
+          </p>
         {isSignUp ? (
           <form onSubmit={handleSignUp} className="space-y-4">
             <div>

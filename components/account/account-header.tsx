@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useState, useEffect } from 'react'
-
+import Image from "next/image"
 export default function AccountHeader() {
   const supabase = useSupabaseClient()
   const router = useRouter()
@@ -42,7 +42,13 @@ export default function AccountHeader() {
     <header className="border-b bg-white">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold">CostCube</h1>
+          <Image
+            src="/cube.png"
+            alt="CostCube Logo"
+            width={50}
+            height={50}
+            priority
+          />
           {profile && (
             <p className="text-sm text-gray-600">
               Welcome, {profile.first_name}
@@ -62,7 +68,7 @@ export default function AccountHeader() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push('/settings')}
+            onClick={() => handleNavigation('/settings')}
             className="ml-2"
           >
             <Settings className="h-5 w-5" />

@@ -27,7 +27,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies()
+  const cookieStore = cookies()
   const supabase = createServerComponentClient({ 
     cookies: () => cookieStore  
   })
